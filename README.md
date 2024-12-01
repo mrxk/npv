@@ -4,6 +4,10 @@ This project fetches NetworkPolicy resources from the Kubernetes cluster
 identified by the current `KUBECONFIG` environment variable and prints a
 [PlantUML](http://www.plantuml.com) component diagram to stdout.
 
+## Install
+
+`go install github.com/mrxk/npv@latest`
+
 ## Usage
 
 `./npv visualize [--namespace=namespace] [--ingress-only] [--egress-only]`

@@ -109,7 +109,7 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 							for _, port := range ingress.Ports {
 								t := target{
 									id:     targetKey(peer, port),
-									peerId: peerKey(peer),
+									peerId: peerID(peer),
 									peer:   peer,
 									port:   port,
 								}
@@ -118,7 +118,7 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 						} else {
 							t := target{
 								id:     targetKey(peer, networkingv1.NetworkPolicyPort{}),
-								peerId: peerKey(peer),
+								peerId: peerID(peer),
 								peer:   peer,
 								port:   networkingv1.NetworkPolicyPort{},
 							}
@@ -153,7 +153,7 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 							for _, port := range egress.Ports {
 								t := target{
 									id:     targetKey(peer, port),
-									peerId: peerKey(peer),
+									peerId: peerID(peer),
 									peer:   peer,
 									port:   port,
 								}
@@ -162,7 +162,7 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 						} else {
 							t := target{
 								id:     targetKey(peer, networkingv1.NetworkPolicyPort{}),
-								peerId: peerKey(peer),
+								peerId: peerID(peer),
 								peer:   peer,
 								port:   networkingv1.NetworkPolicyPort{},
 							}
@@ -175,17 +175,6 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 		pods[key] = p
 	}
 	return sorted(pods), nil
-}
-
-// sorted does not sort the map of pods. It ensures that the fields of each pod
-// are sorted so that benchmarks will be predictable.
-func sorted(pods map[string]pod) map[string]pod {
-	for _, pod := range pods {
-		slices.Sort(pod.names)
-		slices.SortFunc(pod.ingress, compareTarget)
-		slices.SortFunc(pod.egress, compareTarget)
-	}
-	return pods
 }
 
 func formatPort(port networkingv1.NetworkPolicyPort) string {
@@ -342,7 +331,7 @@ func ipblockLable(i networkingv1.IPBlock) string {
 	return b.String()
 }
 
-func labelSelectorKey(selector metav1.LabelSelector) string {
+func labelSelectorID(selector metav1.LabelSelector) string {
 	parts := []string{}
 	if len(selector.MatchLabels) == 0 && len(selector.MatchExpressions) == 0 {
 		return "_ALL_"
@@ -364,13 +353,13 @@ func normalizePlantUMLId(v string) string {
 	return v
 }
 
-func peerKey(peer networkingv1.NetworkPolicyPeer) string {
+func peerID(peer networkingv1.NetworkPolicyPeer) string {
 	parts := []string{}
 	if peer.PodSelector != nil {
-		parts = append(parts, labelSelectorKey(*peer.PodSelector))
+		parts = append(parts, labelSelectorID(*peer.PodSelector))
 	}
 	if peer.NamespaceSelector != nil {
-		parts = append(parts, labelSelectorKey(*peer.NamespaceSelector))
+		parts = append(parts, labelSelectorID(*peer.NamespaceSelector))
 	}
 	if peer.IPBlock != nil {
 		parts = append(parts, ipblockKey(*peer.IPBlock))
@@ -397,7 +386,7 @@ func peerLabel(p networkingv1.NetworkPolicyPeer) string {
 }
 
 func podKey(namespace string, selector metav1.LabelSelector) string {
-	parts := []string{namespace, labelSelectorKey(selector)}
+	parts := []string{namespace, labelSelectorID(selector)}
 	return normalizePlantUMLId(strings.Join(parts, ""))
 }
 
@@ -421,8 +410,19 @@ func selectorLabel(indent string, s metav1.LabelSelector) string {
 	return b.String()
 }
 
+// sorted does not sort the map of pods. It ensures that the fields of each pod
+// are sorted so that benchmarks will be predictable.
+func sorted(pods map[string]pod) map[string]pod {
+	for _, pod := range pods {
+		slices.Sort(pod.names)
+		slices.SortFunc(pod.ingress, compareTarget)
+		slices.SortFunc(pod.egress, compareTarget)
+	}
+	return pods
+}
+
 func targetKey(peer networkingv1.NetworkPolicyPeer, port networkingv1.NetworkPolicyPort) string {
-	parts := []string{peerKey(peer)}
+	parts := []string{peerID(peer)}
 	if port.Protocol != nil {
 		parts = append(parts, string(*port.Protocol))
 	}
