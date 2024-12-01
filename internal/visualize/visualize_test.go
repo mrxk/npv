@@ -37,6 +37,7 @@ spec:
       - podSelector:
           matchLabels:
             app: pod2`
+
 	oneExpected = `@startuml
 left to right direction
 frame Pods {
@@ -59,6 +60,7 @@ component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2 {
 defaultapppod2portout --down[#green]--> apppod2egressport
 @enduml
 `
+
 	oneIngressOnlyExpected = `@startuml
 left to right direction
 frame Pods {
@@ -75,6 +77,7 @@ component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1 {
 apppod1ingressportout --down[#green]--> apppod1port
 @enduml
 `
+
 	oneEgressOnlyExpected = `@startuml
 left to right direction
 frame Pods {
@@ -91,6 +94,7 @@ component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2 {
 defaultapppod2portout --down[#green]--> apppod2egressport
 @enduml
 `
+
 	denyToPod = `
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -104,6 +108,7 @@ spec:
   policyTypes:
     - Ingress
     - Egress`
+
 	denyToPodExpected = `@startuml
 left to right direction
 frame Pods {
@@ -126,6 +131,7 @@ component "ALL" as _ALL_ {
 defaultappdemoportout --down[#red]--> _ALL_egressport
 @enduml
 `
+
 	denyAll = `
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -137,6 +143,7 @@ spec:
   policyTypes:
     - Ingress
     - Egress`
+
 	denyAllExpected = `@startuml
 left to right direction
 frame Pods {
@@ -159,6 +166,7 @@ component "ALL" as _ALL_ {
 default_ALL_portout --down[#red]--> _ALL_egressport
 @enduml
 `
+
 	denyAllAndToPodExpected = `@startuml
 left to right direction
 frame Pods {
@@ -175,9 +183,6 @@ frame Ingress {
 component "ALL" as _ALL_PEER_INGRESS_ {
     portout " " as _ALL_PEER_INGRESS_ingressportout
 }
-component "ALL" as _ALL_PEER_INGRESS_ {
-    portout " " as _ALL_PEER_INGRESS_ingressportout
-}
 }
 _ALL_PEER_INGRESS_ingressportout --down[#red]--> default_ALL__ALL_port
 _ALL_PEER_INGRESS_ingressportout --down[#red]--> defaultappdemo_ALL_port
@@ -191,6 +196,7 @@ default_ALL_portout --down[#red]--> _ALL_egressport
 defaultappdemoportout --down[#red]--> _ALL_egressport
 @enduml
 `
+
 	allowToPod = `
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -209,6 +215,7 @@ spec:
   egress:
     - {}
 `
+
 	allowToPodExpected = `@startuml
 left to right direction
 frame Pods {
@@ -231,6 +238,7 @@ component "ALL" as _ALL_PEER_ {
 defaultappdemoportout --down[#green]--> _ALL_PEER_egressport
 @enduml
 `
+
 	allInOne = `
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -374,36 +382,6 @@ frame Ingress {
 component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
     portout " " as appapp2namespaceotheringressportout
 }
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3 {
-    portout " " as appapp3ingressportout
-}
 component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3 {
     portout " " as appapp3ingressportout
 }
@@ -421,25 +399,17 @@ appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP11
 appapp3ingressportout --down[#green]--> appapp3TCP1129port
 appapp3ingressportout --down[#green]--> appapp3TCP1130port
 frame Egress {
-component "IPBlock:\l    0.0.0.0/0 except 10.1.1.5/32, 10.1.1.6/32, 10.1.1.7/32, 10.1.1.8/32, 10.1.1.9/32\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32 {
-    port "0-65535" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
-}
 component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP443 {
     port "443 (TCP)" as 0.0.0.0_0TCP443egressport
 }
+component "IPBlock:\l    0.0.0.0/0 except 10.1.1.5/32, 10.1.1.6/32, 10.1.1.7/32, 10.1.1.8/32, 10.1.1.9/32\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32 {
+    port "0-65535" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
+}
 component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1111 {
     port "1111 (TCP)" as 10.1.1.1_32TCP1111egressport
-}
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1112 {
     port "1112 (TCP)" as 10.1.1.1_32TCP1112egressport
-}
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1113 {
     port "1113 (TCP)" as 10.1.1.1_32TCP1113egressport
-}
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1114 {
     port "1114 (TCP)" as 10.1.1.1_32TCP1114egressport
-}
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1115 {
     port "1115 (TCP)" as 10.1.1.1_32TCP1115egressport
 }
 component "IPBlock:\l    10.1.1.2/32\l" as 10.1.1.2_32TCP443 {

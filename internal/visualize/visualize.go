@@ -23,7 +23,7 @@ func Visualize(namespace string, clientset kubernetes.Interface, categories []st
 	if err != nil {
 		return "", err
 	}
-	return generatePlantUML(podRules, categories)
+	return generatePlantUML(podRules, categories), nil
 }
 
 type pod struct {
@@ -203,12 +203,8 @@ func formatPort(port networkingv1.NetworkPolicyPort) string {
 	}
 }
 
-func generatePlantUML(pods map[string]pod, categories []string) (string, error) {
+func generatePodPlantUML(ids []string, pods map[string]pod, categories []string) string {
 	b := strings.Builder{}
-	b.WriteString("@startuml\n")
-	b.WriteString("left to right direction\n")
-	ids := maputils.SortedKeys(pods)
-	// Create the components that represent the pods.
 	b.WriteString("frame Pods {\n")
 	for _, id := range ids {
 		pod := pods[id]
@@ -229,75 +225,98 @@ func generatePlantUML(pods map[string]pod, categories []string) (string, error) 
 		}
 	}
 	b.WriteString("}\n")
+	return b.String()
+}
+
+func generateIngressPlantUML(ids []string, pods map[string]pod) string {
+	b := strings.Builder{}
+	ingressNodes := map[string]struct{}{}
+	b.WriteString("frame Ingress {\n")
+	for _, id := range ids {
+		pod := pods[id]
+		for _, t := range pod.ingress {
+			_, present := ingressNodes[t.peerId]
+			if !present {
+				b.WriteString(
+					fmt.Sprintf("component \"%s\" as %s {\n    portout \" \" as %s\n}\n",
+						strings.ReplaceAll(t.Label(), "\n", "\\l"),
+						t.peerId,
+						t.peerId+"ingressportout"),
+				)
+				ingressNodes[t.peerId] = struct{}{}
+			}
+		}
+	}
+	b.WriteString("}\n")
+	// Create arrows to connect ingress to pods.
+	for _, id := range ids {
+		pod := pods[id]
+		for _, t := range pod.ingress {
+			if t.blockAll {
+				b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
+			} else {
+				b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
+			}
+		}
+	}
+	return b.String()
+}
+
+func generateEgressPlantUML(ids []string, pods map[string]pod) string {
+	b := strings.Builder{}
+	egressComponents := map[string][]string{}
+	for _, id := range ids {
+		pod := pods[id]
+		for _, t := range pod.egress {
+			ports, present := egressComponents[t.peerId]
+			if !present {
+				ports = []string{fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(t.Label(), "\n", "\\l"), t.id)}
+			}
+			if t.blockAll || t.allowAll {
+				ports = append(ports, fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"egressport"))
+			} else {
+				ports = append(ports, fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"egressport"))
+			}
+			egressComponents[t.peerId] = ports
+		}
+	}
+	b.WriteString("frame Egress {\n")
+	for _, peerId := range maputils.SortedKeys(egressComponents) {
+		b.WriteString(strings.Join(egressComponents[peerId], ""))
+		b.WriteString("}\n")
+	}
+	b.WriteString("}\n")
+	// Create arrows to connect pods to egress.
+	for _, id := range ids {
+		pod := pods[id]
+		for _, t := range pod.egress {
+			if t.blockAll {
+				b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", id+"portout", t.id+"egressport"))
+			} else {
+				b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", id+"portout", t.id+"egressport"))
+			}
+		}
+	}
+	return b.String()
+}
+
+func generatePlantUML(pods map[string]pod, categories []string) string {
+	b := strings.Builder{}
+	b.WriteString("@startuml\n")
+	b.WriteString("left to right direction\n")
+	ids := maputils.SortedKeys(pods)
+	// Create the components that represent the pods.
+	b.WriteString(generatePodPlantUML(ids, pods, categories))
 	// Create components to represent all the ingres nodes
 	if slices.Contains(categories, "ingress") {
-		ingressNodes := map[networkingv1.NetworkPolicyPeer]interface{}{}
-		b.WriteString("frame Ingress {\n")
-		for _, id := range ids {
-			pod := pods[id]
-			for _, t := range pod.ingress {
-				_, present := ingressNodes[t.peer]
-				if !present {
-					b.WriteString(
-						fmt.Sprintf("component \"%s\" as %s {\n    portout \" \" as %s\n}\n",
-							strings.ReplaceAll(t.Label(), "\n", "\\l"),
-							t.peerId,
-							t.peerId+"ingressportout"),
-					)
-				}
-			}
-		}
-		b.WriteString("}\n")
-		// Create arrows to connect ingress to pods.
-		for _, id := range ids {
-			pod := pods[id]
-			for _, t := range pod.ingress {
-				if t.blockAll {
-					b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
-				} else {
-					b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
-				}
-			}
-		}
+		b.WriteString(generateIngressPlantUML(ids, pods))
 	}
+	// Create components to represent all the egress nodes
 	if slices.Contains(categories, "egress") {
-		// Create components to represent all the egress nodes
-		egressComponents := map[string][]string{}
-		for _, id := range ids {
-			pod := pods[id]
-			for _, t := range pod.egress {
-				ports, present := egressComponents[t.id]
-				if !present {
-					ports = []string{fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(t.Label(), "\n", "\\l"), t.id)}
-				}
-				if t.blockAll || t.allowAll {
-					ports = append(ports, fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"egressport"))
-				} else {
-					ports = append(ports, fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"egressport"))
-				}
-				egressComponents[t.id] = ports
-			}
-		}
-		b.WriteString("frame Egress {\n")
-		for _, componentDef := range maputils.SortedKeys(egressComponents) {
-			b.WriteString(strings.Join(egressComponents[componentDef], ""))
-			b.WriteString("}\n")
-		}
-		b.WriteString("}\n")
-		// Create arrows to connect pods to egress.
-		for _, id := range ids {
-			pod := pods[id]
-			for _, t := range pod.egress {
-				if t.blockAll {
-					b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", id+"portout", t.id+"egressport"))
-				} else {
-					b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", id+"portout", t.id+"egressport"))
-				}
-			}
-		}
+		b.WriteString(generateEgressPlantUML(ids, pods))
 	}
 	b.WriteString("@enduml\n")
-	return b.String(), nil
+	return b.String()
 }
 
 func getPolicies(namespace string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
