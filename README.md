@@ -24,13 +24,19 @@ cooresponding options.
 ## Examples
 
 
-![allow](allow.png)
+![allowToPod](allowToPod.png)
 
-![one](one.png)
+![allowToPod.ingress](allowToPod.ingress.png)
 
-![deny](deny.png)
+![allowToPod.egress](allowToPod.egress.png)
+
+![allowAll](allowAll.png)
+
+![denyToPod](denyToPod.png)
 
 ![denyAll](denyAll.png)
+
+![denyAllAndToPod](denyAllAndToPod.png)
 
 ![multiple](multiple.png)
 

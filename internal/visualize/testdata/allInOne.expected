@@ -1,0 +1,86 @@
+@startuml
+left to right direction
+frame Pods {
+component "Name: all-in-one\lNamespace: default\lMatch Labels:\l    app: app1\l" as defaultappapp1 {
+    port "1118 (TCP)" as appapp2namespaceotherTCP1118port
+    port "1119 (TCP)" as appapp2namespaceotherTCP1119port
+    port "1121 (TCP)" as appapp2namespaceotherTCP1121port
+    port "1122 (TCP)" as appapp2namespaceotherTCP1122port
+    port "1123 (TCP)" as appapp2namespaceotherTCP1123port
+    port "1124 (TCP)" as appapp2namespaceotherTCP1124port
+    port "1125 (TCP)" as appapp2namespaceotherTCP1125port
+    port "1126 (TCP)" as appapp2namespaceotherTCP1126port
+    port "1127 (TCP)" as appapp2namespaceotherTCP1127port
+    port "1128 (TCP)" as appapp2namespaceotherTCP1128port
+    port "1129 (TCP)" as appapp3TCP1129port
+    port "1130 (TCP)" as appapp3TCP1130port
+    portout " " as defaultappapp1portout
+}
+}
+frame Ingress {
+component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
+    portout " " as appapp2namespaceotheringressportout
+}
+component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3 {
+    portout " " as appapp3ingressportout
+}
+}
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1118port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1119port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1121port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1122port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1123port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1124port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1125port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1126port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1127port
+appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1128port
+appapp3ingressportout --down[#green]--> appapp3TCP1129port
+appapp3ingressportout --down[#green]--> appapp3TCP1130port
+frame Egress {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP443 {
+    port "443 (TCP)" as 0.0.0.0_0TCP443egressport
+}
+component "IPBlock:\l    0.0.0.0/0 except 10.1.1.5/32, 10.1.1.6/32, 10.1.1.7/32, 10.1.1.8/32, 10.1.1.9/32\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32 {
+    port "0-65535" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
+}
+component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1111 {
+    port "1111 (TCP)" as 10.1.1.1_32TCP1111egressport
+    port "1112 (TCP)" as 10.1.1.1_32TCP1112egressport
+    port "1113 (TCP)" as 10.1.1.1_32TCP1113egressport
+    port "1114 (TCP)" as 10.1.1.1_32TCP1114egressport
+    port "1115 (TCP)" as 10.1.1.1_32TCP1115egressport
+}
+component "IPBlock:\l    10.1.1.2/32\l" as 10.1.1.2_32TCP443 {
+    port "443 (TCP)" as 10.1.1.2_32TCP443egressport
+}
+component "IPBlock:\l    10.1.1.3/32\l" as 10.1.1.3_32TCP443 {
+    port "443 (TCP)" as 10.1.1.3_32TCP443egressport
+}
+component "IPBlock:\l    10.1.1.4/32\l" as 10.1.1.4_32TCP443 {
+    port "443 (TCP)" as 10.1.1.4_32TCP443egressport
+}
+component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceotherUDP53 {
+    port "53 (UDP)" as appapp2namespaceotherUDP53egressport
+}
+component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3TCP1116 {
+    port "1116 (TCP)" as appapp3TCP1116egressport
+}
+component "Pod:\l    Match Labels:\l        app: app4\l" as appapp4TCP1117 {
+    port "1117 (TCP)" as appapp4TCP1117egressport
+}
+}
+defaultappapp1portout --down[#green]--> 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
+defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP443egressport
+defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1111egressport
+defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1112egressport
+defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1113egressport
+defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1114egressport
+defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1115egressport
+defaultappapp1portout --down[#green]--> 10.1.1.2_32TCP443egressport
+defaultappapp1portout --down[#green]--> 10.1.1.3_32TCP443egressport
+defaultappapp1portout --down[#green]--> 10.1.1.4_32TCP443egressport
+defaultappapp1portout --down[#green]--> appapp2namespaceotherUDP53egressport
+defaultappapp1portout --down[#green]--> appapp3TCP1116egressport
+defaultappapp1portout --down[#green]--> appapp4TCP1117egressport
+@enduml

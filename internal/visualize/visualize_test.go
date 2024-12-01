@@ -1,8 +1,9 @@
 package visualize_test
 
 import (
+	"bytes"
 	"io"
-	"strings"
+	"os"
 	"testing"
 
 	"github.com/mrxk/npv/internal/visualize"
@@ -11,568 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/fake"
-)
-
-const (
-	one = `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: one
-  namespace: default
-spec:
-  podSelector:
-    matchLabels:
-      app: pod2
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-      - podSelector:
-          matchLabels:
-            app: pod1
-  egress:
-    - to:
-      - podSelector:
-          matchLabels:
-            app: pod2`
-
-	oneExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: one\lNamespace: default\lMatch Labels:\l    app: pod2\l" as defaultapppod2 {
-    port "0-65535" as apppod1port
-    portout " " as defaultapppod2portout
-}
-}
-frame Ingress {
-component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1 {
-    portout " " as apppod1ingressportout
-}
-}
-apppod1ingressportout --down[#green]--> apppod1port
-frame Egress {
-component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2 {
-    port "0-65535" as apppod2egressport
-}
-}
-defaultapppod2portout --down[#green]--> apppod2egressport
-@enduml
-`
-
-	oneIngressOnlyExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: one\lNamespace: default\lMatch Labels:\l    app: pod2\l" as defaultapppod2 {
-    port "0-65535" as apppod1port
-    portout " " as defaultapppod2portout
-}
-}
-frame Ingress {
-component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1 {
-    portout " " as apppod1ingressportout
-}
-}
-apppod1ingressportout --down[#green]--> apppod1port
-@enduml
-`
-
-	oneEgressOnlyExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: one\lNamespace: default\lMatch Labels:\l    app: pod2\l" as defaultapppod2 {
-    port "0-65535" as apppod1port
-    portout " " as defaultapppod2portout
-}
-}
-frame Egress {
-component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2 {
-    port "0-65535" as apppod2egressport
-}
-}
-defaultapppod2portout --down[#green]--> apppod2egressport
-@enduml
-`
-
-	denyToPod = `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: denyToPod
-  namespace: default
-spec:
-  podSelector:
-    matchLabels:
-      app: demo
-  policyTypes:
-    - Ingress
-    - Egress`
-
-	denyToPodExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: denyToPod\lNamespace: default\lMatch Labels:\l    app: demo\l" as defaultappdemo {
-    port "0-65535" as defaultappdemo_ALL_port
-    portout " " as defaultappdemoportout
-}
-}
-frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS_ {
-    portout " " as _ALL_PEER_INGRESS_ingressportout
-}
-}
-_ALL_PEER_INGRESS_ingressportout --down[#red]--> defaultappdemo_ALL_port
-frame Egress {
-component "ALL" as _ALL_ {
-    port "0-65535" as _ALL_egressport
-}
-}
-defaultappdemoportout --down[#red]--> _ALL_egressport
-@enduml
-`
-
-	denyAll = `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: denyAll
-  namespace: default
-spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress`
-
-	denyAllExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: denyAll\lNamespace: default\lAll\l" as default_ALL_ {
-    port "0-65535" as default_ALL__ALL_port
-    portout " " as default_ALL_portout
-}
-}
-frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS_ {
-    portout " " as _ALL_PEER_INGRESS_ingressportout
-}
-}
-_ALL_PEER_INGRESS_ingressportout --down[#red]--> default_ALL__ALL_port
-frame Egress {
-component "ALL" as _ALL_ {
-    port "0-65535" as _ALL_egressport
-}
-}
-default_ALL_portout --down[#red]--> _ALL_egressport
-@enduml
-`
-
-	denyAllAndToPodExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: denyAll\lNamespace: default\lAll\l" as default_ALL_ {
-    port "0-65535" as default_ALL__ALL_port
-    portout " " as default_ALL_portout
-}
-component "Name: denyToPod\lNamespace: default\lMatch Labels:\l    app: demo\l" as defaultappdemo {
-    port "0-65535" as defaultappdemo_ALL_port
-    portout " " as defaultappdemoportout
-}
-}
-frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS_ {
-    portout " " as _ALL_PEER_INGRESS_ingressportout
-}
-}
-_ALL_PEER_INGRESS_ingressportout --down[#red]--> default_ALL__ALL_port
-_ALL_PEER_INGRESS_ingressportout --down[#red]--> defaultappdemo_ALL_port
-frame Egress {
-component "ALL" as _ALL_ {
-    port "0-65535" as _ALL_egressport
-    port "0-65535" as _ALL_egressport
-}
-}
-default_ALL_portout --down[#red]--> _ALL_egressport
-defaultappdemoportout --down[#red]--> _ALL_egressport
-@enduml
-`
-
-	allowToPod = `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: network-policy
-  namespace: default
-spec:
-  podSelector:
-    matchLabels:
-      app: demo
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - {}
-  egress:
-    - {}
-`
-
-	allowToPodExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: network-policy\lNamespace: default\lMatch Labels:\l    app: demo\l" as defaultappdemo {
-    port "0-65535" as _ALL_PEER_port
-    portout " " as defaultappdemoportout
-}
-}
-frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS {
-    portout " " as _ALL_PEER_INGRESSingressportout
-}
-}
-_ALL_PEER_INGRESSingressportout --down[#green]--> _ALL_PEER_port
-frame Egress {
-component "ALL" as _ALL_PEER_ {
-    port "0-65535" as _ALL_PEER_egressport
-}
-}
-defaultappdemoportout --down[#green]--> _ALL_PEER_egressport
-@enduml
-`
-
-	allInOne = `
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: all-in-one
-  namespace: default
-spec:
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Ingress
-  - Egress
-  egress:
-  - ports:
-    - port: 443
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  - ports:
-    - port: 1111
-      protocol: TCP
-    - port: 1112
-      protocol: TCP
-    - port: 1113
-      protocol: TCP
-    - port: 1114
-      protocol: TCP
-    - port: 1115
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 10.1.1.1/32
-  - ports:
-    - port: 443
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 10.1.1.2/32
-    - ipBlock:
-        cidr: 10.1.1.3/32
-  - ports:
-    - port: 443
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 10.1.1.4/32
-  - ports:
-    - port: 53
-      protocol: UDP
-    to:
-    - namespaceSelector:
-        matchLabels:
-          namespace: other
-      podSelector:
-        matchLabels:
-          app: app2
-  - ports:
-    - port: 1116
-      protocol: TCP
-    to:
-    - podSelector:
-        matchLabels:
-          app: app3
-  - ports:
-    - port: 1117
-      protocol: TCP
-    to:
-    - podSelector:
-        matchLabels:
-          app: app4
-  - to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-        except:
-        - 10.1.1.5/32
-        - 10.1.1.6/32
-        - 10.1.1.7/32
-        - 10.1.1.8/32
-        - 10.1.1.9/32
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          namespace: other
-      podSelector:
-        matchLabels:
-          app: app2
-    ports:
-    - port: 1118
-      protocol: TCP
-    - port: 1119
-      protocol: TCP
-    - port: 1121
-      protocol: TCP
-    - port: 1122
-      protocol: TCP
-    - port: 1123
-      protocol: TCP
-    - port: 1124
-      protocol: TCP
-    - port: 1125
-      protocol: TCP
-    - port: 1126
-      protocol: TCP
-    - port: 1127
-      protocol: TCP
-    - port: 1128
-      protocol: TCP
-  - from:
-    - podSelector:
-        matchLabels:
-          app: app3
-    ports:
-    - port: 1129
-      protocol: TCP
-    - port: 1130
-      protocol: TCP`
-
-	allInOneExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: all-in-one\lNamespace: default\lMatch Labels:\l    app: app1\l" as defaultappapp1 {
-    port "1118 (TCP)" as appapp2namespaceotherTCP1118port
-    port "1119 (TCP)" as appapp2namespaceotherTCP1119port
-    port "1121 (TCP)" as appapp2namespaceotherTCP1121port
-    port "1122 (TCP)" as appapp2namespaceotherTCP1122port
-    port "1123 (TCP)" as appapp2namespaceotherTCP1123port
-    port "1124 (TCP)" as appapp2namespaceotherTCP1124port
-    port "1125 (TCP)" as appapp2namespaceotherTCP1125port
-    port "1126 (TCP)" as appapp2namespaceotherTCP1126port
-    port "1127 (TCP)" as appapp2namespaceotherTCP1127port
-    port "1128 (TCP)" as appapp2namespaceotherTCP1128port
-    port "1129 (TCP)" as appapp3TCP1129port
-    port "1130 (TCP)" as appapp3TCP1130port
-    portout " " as defaultappapp1portout
-}
-}
-frame Ingress {
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
-    portout " " as appapp2namespaceotheringressportout
-}
-component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3 {
-    portout " " as appapp3ingressportout
-}
-}
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1118port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1119port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1121port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1122port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1123port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1124port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1125port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1126port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1127port
-appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP1128port
-appapp3ingressportout --down[#green]--> appapp3TCP1129port
-appapp3ingressportout --down[#green]--> appapp3TCP1130port
-frame Egress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP443 {
-    port "443 (TCP)" as 0.0.0.0_0TCP443egressport
-}
-component "IPBlock:\l    0.0.0.0/0 except 10.1.1.5/32, 10.1.1.6/32, 10.1.1.7/32, 10.1.1.8/32, 10.1.1.9/32\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32 {
-    port "0-65535" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
-}
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1111 {
-    port "1111 (TCP)" as 10.1.1.1_32TCP1111egressport
-    port "1112 (TCP)" as 10.1.1.1_32TCP1112egressport
-    port "1113 (TCP)" as 10.1.1.1_32TCP1113egressport
-    port "1114 (TCP)" as 10.1.1.1_32TCP1114egressport
-    port "1115 (TCP)" as 10.1.1.1_32TCP1115egressport
-}
-component "IPBlock:\l    10.1.1.2/32\l" as 10.1.1.2_32TCP443 {
-    port "443 (TCP)" as 10.1.1.2_32TCP443egressport
-}
-component "IPBlock:\l    10.1.1.3/32\l" as 10.1.1.3_32TCP443 {
-    port "443 (TCP)" as 10.1.1.3_32TCP443egressport
-}
-component "IPBlock:\l    10.1.1.4/32\l" as 10.1.1.4_32TCP443 {
-    port "443 (TCP)" as 10.1.1.4_32TCP443egressport
-}
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceotherUDP53 {
-    port "53 (UDP)" as appapp2namespaceotherUDP53egressport
-}
-component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3TCP1116 {
-    port "1116 (TCP)" as appapp3TCP1116egressport
-}
-component "Pod:\l    Match Labels:\l        app: app4\l" as appapp4TCP1117 {
-    port "1117 (TCP)" as appapp4TCP1117egressport
-}
-}
-defaultappapp1portout --down[#green]--> 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
-defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP443egressport
-defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1111egressport
-defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1112egressport
-defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1113egressport
-defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1114egressport
-defaultappapp1portout --down[#green]--> 10.1.1.1_32TCP1115egressport
-defaultappapp1portout --down[#green]--> 10.1.1.2_32TCP443egressport
-defaultappapp1portout --down[#green]--> 10.1.1.3_32TCP443egressport
-defaultappapp1portout --down[#green]--> 10.1.1.4_32TCP443egressport
-defaultappapp1portout --down[#green]--> appapp2namespaceotherUDP53egressport
-defaultappapp1portout --down[#green]--> appapp3TCP1116egressport
-defaultappapp1portout --down[#green]--> appapp4TCP1117egressport
-@enduml
-`
-
-	multiple = `
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: one
-  namespace: default
-spec:
-  egress:
-  - ports:
-    - port: 1111
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Egress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: two
-  namespace: default
-spec:
-  egress:
-  - ports:
-    - port: 2222
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Egress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: three
-  namespace: default
-spec:
-  egress:
-  - ports:
-    - port: 3333
-      protocol: TCP
-    to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Egress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: four
-  namespace: default
-spec:
-  ingress:
-  - ports:
-    - port: 4444
-      protocol: TCP
-    from:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: five
-  namespace: default
-spec:
-  ingress:
-  - ports:
-    - port: 5555
-      protocol: TCP
-    from:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  podSelector:
-    matchLabels:
-      app: app1
-  policyTypes:
-  - Ingress
-  `
-
-	multipleExpected = `@startuml
-left to right direction
-frame Pods {
-component "Name: five, four, one, three, two\lNamespace: default\lMatch Labels:\l    app: app1\l" as defaultappapp1 {
-    port "4444 (TCP)" as 0.0.0.0_0TCP4444port
-    port "5555 (TCP)" as 0.0.0.0_0TCP5555port
-    portout " " as defaultappapp1portout
-}
-}
-frame Ingress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0 {
-    portout " " as 0.0.0.0_0ingressportout
-}
-}
-0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP4444port
-0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP5555port
-frame Egress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP1111 {
-    port "1111 (TCP)" as 0.0.0.0_0TCP1111egressport
-    port "2222 (TCP)" as 0.0.0.0_0TCP2222egressport
-    port "3333 (TCP)" as 0.0.0.0_0TCP3333egressport
-}
-}
-defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP1111egressport
-defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP2222egressport
-defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP3333egressport
-@enduml
-`
 )
 
 func TestVisaulize(t *testing.T) {
@@ -585,76 +24,76 @@ func TestVisaulize(t *testing.T) {
 	}{
 		"one": {
 			policies: []string{
-				one,
+				"testdata/allowToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   oneExpected,
+			expected:   "testdata/allowToPod.expected",
 		},
 		"oneIngressOnly": {
 			policies: []string{
-				one,
+				"testdata/allowToPod.input",
 			},
 			categories: []string{"ingress"},
 			namespace:  "default",
-			expected:   oneIngressOnlyExpected,
+			expected:   "testdata/allowToPod.ingress.expected",
 		},
 		"oneEgressOnly": {
 			policies: []string{
-				one,
+				"testdata/allowToPod.input",
 			},
 			categories: []string{"egress"},
 			namespace:  "default",
-			expected:   oneEgressOnlyExpected,
+			expected:   "testdata/allowToPod.egress.expected",
 		},
 		"denyToPod": {
 			policies: []string{
-				denyToPod,
+				"testdata/denyToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   denyToPodExpected,
+			expected:   "testdata/denyToPod.expected",
 		},
 		"denyAll": {
 			policies: []string{
-				denyAll,
+				"testdata/denyAll.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   denyAllExpected,
+			expected:   "testdata/denyAll.expected",
 		},
 		"denyAllAndToPod": {
 			policies: []string{
-				denyToPod,
-				denyAll,
+				"testdata/denyAll.input",
+				"testdata/denyToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   denyAllAndToPodExpected,
+			expected:   "testdata/denyAllAndToPod.expected",
 		},
-		"allowToPod": {
+		"allowAll": {
 			policies: []string{
-				allowToPod,
+				"testdata/allowAll.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   allowToPodExpected,
+			expected:   "testdata/allowAll.expected",
 		},
 		"allInOne": {
 			policies: []string{
-				allInOne,
+				"testdata/allInOne.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   allInOneExpected,
+			expected:   "testdata/allInOne.expected",
 		},
 		"multiple": {
 			policies: []string{
-				multiple,
+				"testdata/multiple.input",
 			},
 			categories: []string{"ingress", "egress"},
 			namespace:  "default",
-			expected:   multipleExpected,
+			expected:   "testdata/multiple.expected",
 		},
 	}
 
@@ -666,7 +105,9 @@ func TestVisaulize(t *testing.T) {
 				require.ErrorContains(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tc.expected, actual, actual)
+				expected, err := os.ReadFile(tc.expected)
+				require.NoError(t, err)
+				require.Equal(t, string(expected), actual, actual)
 			}
 		})
 	}
@@ -675,7 +116,9 @@ func TestVisaulize(t *testing.T) {
 func createFakeClientset(t *testing.T, policies []string) *fake.Clientset {
 	objects := []runtime.Object{}
 	for _, policy := range policies {
-		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(policy), 32)
+		contents, err := os.ReadFile(policy)
+		require.NoError(t, err)
+		decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(contents), 32)
 		for {
 			var obj networkingv1.NetworkPolicy
 			err := decoder.Decode(&obj)

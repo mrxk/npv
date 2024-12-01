@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+frame Pods {
+component "Name: denyAll\lNamespace: default\lAll\l" as default_ALL_ {
+    port "0-65535" as default_ALL__ALL_port
+    portout " " as default_ALL_portout
+}
+}
+frame Ingress {
+component "ALL" as _ALL_PEER_INGRESS_ {
+    portout " " as _ALL_PEER_INGRESS_ingressportout
+}
+}
+_ALL_PEER_INGRESS_ingressportout --down[#red]--> default_ALL__ALL_port
+frame Egress {
+component "ALL" as _ALL_ {
+    port "0-65535" as _ALL_egressport
+}
+}
+default_ALL_portout --down[#red]--> _ALL_egressport
+@enduml

@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+frame Pods {
+component "Name: network-policy\lNamespace: default\lMatch Labels:\l    app: demo\l" as defaultappdemo {
+    port "0-65535" as _ALL_PEER_port
+    portout " " as defaultappdemoportout
+}
+}
+frame Ingress {
+component "ALL" as _ALL_PEER_INGRESS {
+    portout " " as _ALL_PEER_INGRESSingressportout
+}
+}
+_ALL_PEER_INGRESSingressportout --down[#green]--> _ALL_PEER_port
+frame Egress {
+component "ALL" as _ALL_PEER_ {
+    port "0-65535" as _ALL_PEER_egressport
+}
+}
+defaultappdemoportout --down[#green]--> _ALL_PEER_egressport
+@enduml

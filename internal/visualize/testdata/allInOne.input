@@ -1,0 +1,119 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: all-in-one
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Ingress
+  - Egress
+  egress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  - ports:
+    - port: 1111
+      protocol: TCP
+    - port: 1112
+      protocol: TCP
+    - port: 1113
+      protocol: TCP
+    - port: 1114
+      protocol: TCP
+    - port: 1115
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 10.1.1.1/32
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 10.1.1.2/32
+    - ipBlock:
+        cidr: 10.1.1.3/32
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 10.1.1.4/32
+  - ports:
+    - port: 53
+      protocol: UDP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          namespace: other
+      podSelector:
+        matchLabels:
+          app: app2
+  - ports:
+    - port: 1116
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          app: app3
+  - ports:
+    - port: 1117
+      protocol: TCP
+    to:
+    - podSelector:
+        matchLabels:
+          app: app4
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.1.1.5/32
+        - 10.1.1.6/32
+        - 10.1.1.7/32
+        - 10.1.1.8/32
+        - 10.1.1.9/32
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          namespace: other
+      podSelector:
+        matchLabels:
+          app: app2
+    ports:
+    - port: 1118
+      protocol: TCP
+    - port: 1119
+      protocol: TCP
+    - port: 1121
+      protocol: TCP
+    - port: 1122
+      protocol: TCP
+    - port: 1123
+      protocol: TCP
+    - port: 1124
+      protocol: TCP
+    - port: 1125
+      protocol: TCP
+    - port: 1126
+      protocol: TCP
+    - port: 1127
+      protocol: TCP
+    - port: 1128
+      protocol: TCP
+  - from:
+    - podSelector:
+        matchLabels:
+          app: app3
+    ports:
+    - port: 1129
+      protocol: TCP
+    - port: 1130
+      protocol: TCP
