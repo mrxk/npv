@@ -1,0 +1,417 @@
+package visualize
+
+import (
+	"context"
+	_ "embed"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/mrxk/npv/internal/maputils"
+	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+)
+
+func Visualize(namespace string, clientset kubernetes.Interface, categories []string) (string, error) {
+	policies, err := getPolicies(namespace, clientset)
+	if err != nil {
+		return "", err
+	}
+	podRules, err := convertToPodRules(policies)
+	if err != nil {
+		return "", err
+	}
+	return generatePlantUML(podRules, categories)
+}
+
+type pod struct {
+	id        string
+	names     []string
+	namespace string
+	selector  metav1.LabelSelector
+	ingress   []target
+	egress    []target
+}
+
+func (p *pod) Label() string {
+	b := strings.Builder{}
+	b.WriteString("Name: " + strings.Join(p.names, ", ") + "\n")
+	b.WriteString("Namespace: " + p.namespace + "\n")
+	b.WriteString(selectorLabel("", p.selector))
+	return strings.TrimSpace(b.String()) + "\n" // ensure one tralining newline
+}
+
+type target struct {
+	id       string
+	peerId   string
+	peer     networkingv1.NetworkPolicyPeer
+	port     networkingv1.NetworkPolicyPort
+	blockAll bool
+	allowAll bool
+}
+
+func (t *target) Label() string {
+	if t.blockAll || t.allowAll {
+		return "ALL"
+	}
+	b := strings.Builder{}
+	b.WriteString(peerLabel(t.peer))
+	return strings.TrimSpace(b.String()) + "\n" // ensure one traling newline
+}
+
+// compareTarget compares the string representation of targets.  It exists only
+// to produce a stable order for benchmarking in tests.
+func compareTarget(l, r target) int {
+	return strings.Compare(l.id, r.id)
+}
+
+func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, error) {
+	pods := map[string]pod{}
+	for _, policy := range policies {
+		key := podKey(policy.Namespace, policy.Spec.PodSelector)
+		p, present := pods[key]
+		if present {
+			// This is another policy with the same selector
+			p.names = append(p.names, policy.Name)
+		}
+		if !present {
+			p = pod{
+				id:        key,
+				names:     []string{policy.Name},
+				namespace: policy.Namespace,
+				selector:  policy.Spec.PodSelector,
+			}
+		}
+		if slices.Contains(policy.Spec.PolicyTypes, networkingv1.PolicyTypeIngress) {
+			if len(policy.Spec.Ingress) == 0 {
+				p.ingress = append(p.ingress, target{
+					id:       p.id + "_ALL_",
+					peerId:   "_ALL_PEER_INGRESS_",
+					blockAll: true,
+				})
+			} else {
+				for _, ingress := range policy.Spec.Ingress {
+					if len(ingress.From) == 0 {
+						t := target{
+							id:       targetKey(networkingv1.NetworkPolicyPeer{}, networkingv1.NetworkPolicyPort{}),
+							peerId:   "_ALL_PEER_INGRESS",
+							peer:     networkingv1.NetworkPolicyPeer{},
+							port:     networkingv1.NetworkPolicyPort{},
+							allowAll: true,
+						}
+						p.ingress = append(p.ingress, t)
+						continue
+					}
+					for _, peer := range ingress.From {
+						if len(ingress.Ports) > 0 {
+							for _, port := range ingress.Ports {
+								t := target{
+									id:     targetKey(peer, port),
+									peerId: peerKey(peer),
+									peer:   peer,
+									port:   port,
+								}
+								p.ingress = append(p.ingress, t)
+							}
+						} else {
+							t := target{
+								id:     targetKey(peer, networkingv1.NetworkPolicyPort{}),
+								peerId: peerKey(peer),
+								peer:   peer,
+								port:   networkingv1.NetworkPolicyPort{},
+							}
+							p.ingress = append(p.egress, t)
+						}
+					}
+				}
+			}
+		}
+		if slices.Contains(policy.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
+			if len(policy.Spec.Egress) == 0 {
+				p.egress = append(p.egress, target{
+					id:       "_ALL_",
+					peerId:   "_ALL_PEER_EGRESS_",
+					blockAll: true,
+				})
+			} else {
+				for _, egress := range policy.Spec.Egress {
+					if len(egress.To) == 0 {
+						t := target{
+							id:       targetKey(networkingv1.NetworkPolicyPeer{}, networkingv1.NetworkPolicyPort{}),
+							peerId:   "_ALL_PEER_EGRESS_",
+							peer:     networkingv1.NetworkPolicyPeer{},
+							port:     networkingv1.NetworkPolicyPort{},
+							allowAll: true,
+						}
+						p.egress = append(p.egress, t)
+						continue
+					}
+					for _, peer := range egress.To {
+						if len(egress.Ports) > 0 {
+							for _, port := range egress.Ports {
+								t := target{
+									id:     targetKey(peer, port),
+									peerId: peerKey(peer),
+									peer:   peer,
+									port:   port,
+								}
+								p.egress = append(p.egress, t)
+							}
+						} else {
+							t := target{
+								id:     targetKey(peer, networkingv1.NetworkPolicyPort{}),
+								peerId: peerKey(peer),
+								peer:   peer,
+								port:   networkingv1.NetworkPolicyPort{},
+							}
+							p.egress = append(p.egress, t)
+						}
+					}
+				}
+			}
+		}
+		pods[key] = p
+	}
+	return sorted(pods), nil
+}
+
+// sorted does not sort the map of pods. It ensures that the fields of each pod
+// are sorted so that benchmarks will be predictable.
+func sorted(pods map[string]pod) map[string]pod {
+	for _, pod := range pods {
+		slices.Sort(pod.names)
+		slices.SortFunc(pod.ingress, compareTarget)
+		slices.SortFunc(pod.egress, compareTarget)
+	}
+	return pods
+}
+
+func formatPort(port networkingv1.NetworkPolicyPort) string {
+	switch {
+	case port.Protocol != nil && port.Port != nil && port.EndPort != nil:
+		return fmt.Sprintf("%s-%d (%s)", port.Port.String(), *port.EndPort, *port.Protocol)
+	case port.Protocol != nil && port.Port != nil:
+		return fmt.Sprintf("%s (%s)", port.Port.String(), *port.Protocol)
+	case port.Port != nil && port.EndPort != nil:
+		return fmt.Sprintf("%s-%d", port.Port.String(), *port.EndPort)
+	case port.Port != nil:
+		return port.Port.String()
+	default:
+		return "0-65535"
+	}
+}
+
+func generatePlantUML(pods map[string]pod, categories []string) (string, error) {
+	b := strings.Builder{}
+	b.WriteString("@startuml\n")
+	b.WriteString("left to right direction\n")
+	ids := maputils.SortedKeys(pods)
+	// Create the components that represent the pods.
+	b.WriteString("frame Pods {\n")
+	for _, id := range ids {
+		pod := pods[id]
+		if (slices.Contains(categories, "ingress") && len(pod.ingress) > 0) ||
+			(slices.Contains(categories, "egress") && len(pod.egress) > 0) {
+			b.WriteString(fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(pod.Label(), "\n", "\\l"), id))
+			for _, t := range pod.ingress {
+				if t.blockAll || t.allowAll {
+					b.WriteString(fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"port"))
+					continue
+				}
+				b.WriteString(fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"port"))
+			}
+			if len(pod.egress) > 0 {
+				b.WriteString(fmt.Sprintf("    portout \" \" as %s\n", id+"portout"))
+			}
+			b.WriteString("}\n")
+		}
+	}
+	b.WriteString("}\n")
+	// Create components to represent all the ingres nodes
+	if slices.Contains(categories, "ingress") {
+		ingressNodes := map[networkingv1.NetworkPolicyPeer]interface{}{}
+		b.WriteString("frame Ingress {\n")
+		for _, id := range ids {
+			pod := pods[id]
+			for _, t := range pod.ingress {
+				_, present := ingressNodes[t.peer]
+				if !present {
+					b.WriteString(
+						fmt.Sprintf("component \"%s\" as %s {\n    portout \" \" as %s\n}\n",
+							strings.ReplaceAll(t.Label(), "\n", "\\l"),
+							t.peerId,
+							t.peerId+"ingressportout"),
+					)
+				}
+			}
+		}
+		b.WriteString("}\n")
+		// Create arrows to connect ingress to pods.
+		for _, id := range ids {
+			pod := pods[id]
+			for _, t := range pod.ingress {
+				if t.blockAll {
+					b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
+				} else {
+					b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", t.peerId+"ingressportout", t.id+"port"))
+				}
+			}
+		}
+	}
+	if slices.Contains(categories, "egress") {
+		// Create components to represent all the egress nodes
+		egressComponents := map[string][]string{}
+		for _, id := range ids {
+			pod := pods[id]
+			for _, t := range pod.egress {
+				ports, present := egressComponents[t.id]
+				if !present {
+					ports = []string{fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(t.Label(), "\n", "\\l"), t.id)}
+				}
+				if t.blockAll || t.allowAll {
+					ports = append(ports, fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"egressport"))
+				} else {
+					ports = append(ports, fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"egressport"))
+				}
+				egressComponents[t.id] = ports
+			}
+		}
+		b.WriteString("frame Egress {\n")
+		for _, componentDef := range maputils.SortedKeys(egressComponents) {
+			b.WriteString(strings.Join(egressComponents[componentDef], ""))
+			b.WriteString("}\n")
+		}
+		b.WriteString("}\n")
+		// Create arrows to connect pods to egress.
+		for _, id := range ids {
+			pod := pods[id]
+			for _, t := range pod.egress {
+				if t.blockAll {
+					b.WriteString(fmt.Sprintf("%s --down[#red]--> %s\n", id+"portout", t.id+"egressport"))
+				} else {
+					b.WriteString(fmt.Sprintf("%s --down[#green]--> %s\n", id+"portout", t.id+"egressport"))
+				}
+			}
+		}
+	}
+	b.WriteString("@enduml\n")
+	return b.String(), nil
+}
+
+func getPolicies(namespace string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
+	list, err := clientset.NetworkingV1().NetworkPolicies(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func ipblockKey(ipblock networkingv1.IPBlock) string {
+	parts := []string{ipblock.CIDR}
+	parts = append(parts, ipblock.Except...)
+	return normalizePlantUMLId(strings.Join(parts, ""))
+}
+
+func ipblockLable(i networkingv1.IPBlock) string {
+	b := strings.Builder{}
+	b.WriteString("    " + i.CIDR)
+	if len(i.Except) > 0 {
+		b.WriteString(" except " + strings.Join(i.Except, ", "))
+	}
+	return b.String()
+}
+
+func labelSelectorKey(selector metav1.LabelSelector) string {
+	parts := []string{}
+	if len(selector.MatchLabels) == 0 && len(selector.MatchExpressions) == 0 {
+		return "_ALL_"
+	}
+	for _, k := range maputils.SortedKeys(selector.MatchLabels) {
+		parts = append(parts, k, selector.MatchLabels[k])
+	}
+	for _, e := range selector.MatchExpressions {
+		parts = append(parts, e.Key, string(e.Operator))
+		parts = append(parts, e.Values...)
+	}
+	return normalizePlantUMLId(strings.Join(parts, ""))
+}
+
+func normalizePlantUMLId(v string) string {
+	v = strings.ReplaceAll(v, "-", "_")
+	v = strings.ReplaceAll(v, ":", "_")
+	v = strings.ReplaceAll(v, "/", "_")
+	return v
+}
+
+func peerKey(peer networkingv1.NetworkPolicyPeer) string {
+	parts := []string{}
+	if peer.PodSelector != nil {
+		parts = append(parts, labelSelectorKey(*peer.PodSelector))
+	}
+	if peer.NamespaceSelector != nil {
+		parts = append(parts, labelSelectorKey(*peer.NamespaceSelector))
+	}
+	if peer.IPBlock != nil {
+		parts = append(parts, ipblockKey(*peer.IPBlock))
+	}
+	key := normalizePlantUMLId(strings.Join(parts, ""))
+	if key == "" {
+		return "_ALL_PEER_"
+	}
+	return key
+}
+
+func peerLabel(p networkingv1.NetworkPolicyPeer) string {
+	b := strings.Builder{}
+	if p.NamespaceSelector != nil {
+		b.WriteString("Namespace:\n" + selectorLabel("    ", *p.NamespaceSelector))
+	}
+	if p.PodSelector != nil {
+		b.WriteString("Pod:\n" + selectorLabel("    ", *p.PodSelector))
+	}
+	if p.IPBlock != nil {
+		b.WriteString("IPBlock:\n" + ipblockLable(*p.IPBlock))
+	}
+	return b.String()
+}
+
+func podKey(namespace string, selector metav1.LabelSelector) string {
+	parts := []string{namespace, labelSelectorKey(selector)}
+	return normalizePlantUMLId(strings.Join(parts, ""))
+}
+
+func selectorLabel(indent string, s metav1.LabelSelector) string {
+	if len(s.MatchLabels) == 0 && len(s.MatchExpressions) == 0 {
+		return indent + "All"
+	}
+	b := strings.Builder{}
+	if len(s.MatchLabels) > 0 {
+		b.WriteString(indent + "Match Labels:\n")
+	}
+	for k, v := range s.MatchLabels {
+		b.WriteString(indent + "    " + k + ": " + v + "\n")
+	}
+	if len(s.MatchExpressions) > 0 {
+		b.WriteString(indent + "Match Expressions:\n")
+	}
+	for _, e := range s.MatchExpressions {
+		b.WriteString(indent + "    " + e.Key + " " + string(e.Operator) + " " + strings.Join(e.Values, ", "))
+	}
+	return b.String()
+}
+
+func targetKey(peer networkingv1.NetworkPolicyPeer, port networkingv1.NetworkPolicyPort) string {
+	parts := []string{peerKey(peer)}
+	if port.Protocol != nil {
+		parts = append(parts, string(*port.Protocol))
+	}
+	if port.Port != nil {
+		parts = append(parts, port.Port.String())
+	}
+	if port.EndPort != nil {
+		parts = append(parts, strconv.Itoa(int(*port.EndPort)))
+	}
+	return normalizePlantUMLId(strings.Join(parts, ""))
+}
