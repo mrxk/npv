@@ -446,6 +446,133 @@ defaultappapp1portout --down[#green]--> appapp3TCP1116egressport
 defaultappapp1portout --down[#green]--> appapp4TCP1117egressport
 @enduml
 `
+
+	multiple = `
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: one
+  namespace: default
+spec:
+  egress:
+  - ports:
+    - port: 1111
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: two
+  namespace: default
+spec:
+  egress:
+  - ports:
+    - port: 2222
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: three
+  namespace: default
+spec:
+  egress:
+  - ports:
+    - port: 3333
+      protocol: TCP
+    to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: four
+  namespace: default
+spec:
+  ingress:
+  - ports:
+    - port: 4444
+      protocol: TCP
+    from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: five
+  namespace: default
+spec:
+  ingress:
+  - ports:
+    - port: 5555
+      protocol: TCP
+    from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+  podSelector:
+    matchLabels:
+      app: app1
+  policyTypes:
+  - Ingress
+  `
+
+	multipleExpected = `@startuml
+left to right direction
+frame Pods {
+component "Name: five, four, one, three, two\lNamespace: default\lMatch Labels:\l    app: app1\l" as defaultappapp1 {
+    port "4444 (TCP)" as 0.0.0.0_0TCP4444port
+    port "5555 (TCP)" as 0.0.0.0_0TCP5555port
+    portout " " as defaultappapp1portout
+}
+}
+frame Ingress {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0 {
+    portout " " as 0.0.0.0_0ingressportout
+}
+}
+0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP4444port
+0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP5555port
+frame Egress {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP1111 {
+    port "1111 (TCP)" as 0.0.0.0_0TCP1111egressport
+    port "2222 (TCP)" as 0.0.0.0_0TCP2222egressport
+    port "3333 (TCP)" as 0.0.0.0_0TCP3333egressport
+}
+}
+defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP1111egressport
+defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP2222egressport
+defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP3333egressport
+@enduml
+`
 )
 
 func TestVisaulize(t *testing.T) {
@@ -521,6 +648,14 @@ func TestVisaulize(t *testing.T) {
 			namespace:  "default",
 			expected:   allInOneExpected,
 		},
+		"multiple": {
+			policies: []string{
+				multiple,
+			},
+			categories: []string{"ingress", "egress"},
+			namespace:  "default",
+			expected:   multipleExpected,
+		},
 	}
 
 	for name, tc := range tests {
@@ -541,8 +676,8 @@ func createFakeClientset(t *testing.T, policies []string) *fake.Clientset {
 	objects := []runtime.Object{}
 	for _, policy := range policies {
 		decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(policy), 32)
-		var obj networkingv1.NetworkPolicy
 		for {
+			var obj networkingv1.NetworkPolicy
 			err := decoder.Decode(&obj)
 			if err == io.EOF {
 				break
