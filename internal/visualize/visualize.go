@@ -40,7 +40,7 @@ func (p *pod) Label() string {
 	b.WriteString("Name: " + strings.Join(p.names, ", ") + "\n")
 	b.WriteString("Namespace: " + p.namespace + "\n")
 	b.WriteString(selectorLabel("", p.selector))
-	return strings.TrimSpace(b.String()) + "\n" // ensure one tralining newline
+	return strings.TrimSpace(b.String()) + "\n" // ensure one trailing newline
 }
 
 type target struct {
@@ -58,7 +58,13 @@ func (t *target) Label() string {
 	}
 	b := strings.Builder{}
 	b.WriteString(peerLabel(t.peer))
-	return strings.TrimSpace(b.String()) + "\n" // ensure one traling newline
+	// If the peer has a list of IPBlock exceptions then we need to add enough
+	// newlines so PlantUml draws the box big enough to contain all the text.
+	newlineCount := 1
+	if t.peer.IPBlock != nil {
+		newlineCount += len(t.peer.IPBlock.Except) / 2
+	}
+	return strings.TrimSpace(b.String()) + strings.Repeat("\n", newlineCount)
 }
 
 // compareTarget compares the string representation of targets.  It exists only
@@ -326,7 +332,7 @@ func ipblockLable(i networkingv1.IPBlock) string {
 	b := strings.Builder{}
 	b.WriteString("    " + i.CIDR)
 	if len(i.Except) > 0 {
-		b.WriteString(" except " + strings.Join(i.Except, ", "))
+		b.WriteString("\n        except:\n            " + strings.Join(i.Except, ",\n            "))
 	}
 	return b.String()
 }
