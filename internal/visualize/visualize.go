@@ -1,9 +1,12 @@
 package visualize
 
 import (
+	"bytes"
 	"context"
-	_ "embed"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,11 +14,12 @@ import (
 	"github.com/mrxk/npv/internal/maputils"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 )
 
-func Visualize(namespaces []string, clientset kubernetes.Interface, categories []string) (string, error) {
-	policies, err := getPolicies(namespaces, clientset)
+func VisualizeNamespaces(namespaces []string, clientset kubernetes.Interface, categories []string) (string, error) {
+	policies, err := getPoliciesFromNamespaces(namespaces, clientset)
 	if err != nil {
 		return "", err
 	}
@@ -24,6 +28,19 @@ func Visualize(namespaces []string, clientset kubernetes.Interface, categories [
 		return "", err
 	}
 	return generatePlantUML(podRules, categories), nil
+}
+
+func VisualizeFiles(files, categories []string) (string, error) {
+	policies, err := getPoliciesFromFiles(files)
+	if err != nil {
+		return "", err
+	}
+	podRules, err := convertToPodRules(policies)
+	if err != nil {
+		return "", err
+	}
+	return generatePlantUML(podRules, categories), nil
+
 }
 
 type pod struct {
@@ -314,7 +331,7 @@ func generatePlantUML(pods map[string]pod, categories []string) string {
 	return b.String()
 }
 
-func getPolicies(namespaces []string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
+func getPoliciesFromNamespaces(namespaces []string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
 	items := []networkingv1.NetworkPolicy{}
 	if len(namespaces) == 0 {
 		list, err := clientset.NetworkingV1().NetworkPolicies("").List(context.Background(), metav1.ListOptions{})
@@ -330,6 +347,32 @@ func getPolicies(namespaces []string, clientset kubernetes.Interface) ([]network
 			return nil, err
 		}
 		items = append(items, list.Items...)
+	}
+	return items, nil
+}
+
+func getPoliciesFromFiles(files []string) ([]networkingv1.NetworkPolicy, error) {
+	items := []networkingv1.NetworkPolicy{}
+	for _, file := range files {
+		resolvedFiles, err := filepath.Glob(file)
+		if err != nil {
+			return nil, err
+		}
+		for _, resolvedFile := range resolvedFiles {
+			contents, err := os.ReadFile(resolvedFile)
+			if err != nil {
+				return nil, err
+			}
+			decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(contents), 32)
+			for {
+				var obj networkingv1.NetworkPolicy
+				err := decoder.Decode(&obj)
+				if err == io.EOF {
+					break
+				}
+				items = append(items, obj)
+			}
+		}
 	}
 	return items, nil
 }

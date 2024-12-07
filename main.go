@@ -14,17 +14,20 @@ const (
 	usage = `npv - Network Policy Visualizer
 
 Usage:
-	npv visualize [--namespace=<namespace>...] [--ingress-only] [--egress-only]
+	npv visualize ([--namespace=<namespace>...]|[--file=<file>...]) [--out=<out>] [--ingress-only] [--egress-only]
 
 Options:
 	--namespace=<namespace>	Namespace
+	--file=<file>	        Path to file
 	`
 )
 
 type arguments struct {
 	EgressOnly  bool
+	File        []string
 	IngressOnly bool
 	Namespace   []string
+	Out         string
 	Visualize   bool
 }
 
@@ -55,10 +58,6 @@ func run(args arguments) {
 }
 
 func runVisualize(args arguments) error {
-	clientset, err := getClientset(os.Getenv("KUBECONFIG"))
-	if err != nil {
-		return err
-	}
 	var category []string
 	switch {
 	case args.IngressOnly && args.EgressOnly:
@@ -70,11 +69,30 @@ func runVisualize(args arguments) error {
 	default:
 		category = []string{"ingress", "egress"}
 	}
-	content, err := visualize.Visualize(args.Namespace, clientset, category)
+	var content string
+	var err error
+	// If given files, then visualize files. Otherwise, assume visualization of
+	// a cluster is desired.
+	if len(args.File) > 0 {
+		content, err = visualize.VisualizeFiles(args.File, category)
+	} else {
+		clientset, err := getClientset(os.Getenv("KUBECONFIG"))
+		if err == nil {
+			content, err = visualize.VisualizeNamespaces(args.Namespace, clientset, category)
+		}
+	}
 	if err != nil {
 		return err
 	}
-	fmt.Println(content)
+	if len(args.Out) == 0 || args.Out == "-" {
+		fmt.Println(content)
+	} else {
+		w, err := os.Create(args.Out)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(w, content)
+	}
 	return nil
 }
 
