@@ -10,12 +10,28 @@ identified by the current `KUBECONFIG` environment variable and prints a
 
 ## Usage
 
-`npv visualize [--namespace=<namespace>...] [--ingress-only] [--egress-only]`
+```
+npv - Network Policy Visualizer
 
-If not given a namespace, all NetworkPolicy resources in the cluster will be
-fetched. Multiple `--namespace` options can be provided to include the
-NetworkPolicy resources from multiple namespaces in one graph The output can be
-filtered to only ingress or egress rules with the cooresponding options.
+Usage:
+        npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)]
+
+Options:
+        --namespace=<namespace> Namespace containing Network Policies to visualize
+        --file=<file>           Path to file containing Network Policies to visualize
+        --out=<out>             Path to write visualiztion (- for stdout) (default: -)
+        --ingress-only          Visualize only ingress rules
+        --egress-only           Visualize only egress rules
+```
+
+If not given `--namespace` or `--file`, all NetworkPolicy resources in the
+cluster identified by the current `KUBECONFIG` environment variable will be
+fetched. Multiple `--namespace` or `--file` options can be provided to include
+the NetworkPolicy resources from multiple namespaces or files in one graph.
+Globs can be passed to `--file` although care must be taken to ensure the shell
+does not expand the glob before executing `npv`.  The output can be filtered to
+only ingress or egress rules with either `--ingress-only` or `--egress-only`
+options.
 
 The output can be saved and processed with PlantUML or piped directly to it.
 

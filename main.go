@@ -14,11 +14,14 @@ const (
 	usage = `npv - Network Policy Visualizer
 
 Usage:
-	npv visualize ([--namespace=<namespace>...]|[--file=<file>...]) [--out=<out>] [--ingress-only] [--egress-only]
+	npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)]
 
 Options:
-	--namespace=<namespace>	Namespace
-	--file=<file>	        Path to file
+	--namespace=<namespace>	Namespace containing Network Policies to visualize
+	--file=<file>	        Path to file containing Network Policies to visualize
+	--out=<out>             Path to write visualiztion (- for stdout) (default: -)
+	--ingress-only          Visualize only ingress rules
+	--egress-only           Visualize only egress rules
 	`
 )
 
@@ -60,8 +63,6 @@ func run(args arguments) {
 func runVisualize(args arguments) error {
 	var category []string
 	switch {
-	case args.IngressOnly && args.EgressOnly:
-		category = []string{"ingress", "egress"}
 	case args.IngressOnly:
 		category = []string{"ingress"}
 	case args.EgressOnly:
