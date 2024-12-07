@@ -14,7 +14,7 @@ const (
 	usage = `npv - Network Policy Visualizer
 
 Usage:
-	npv visualize [--namespace=<namespace>] [--ingress-only] [--egress-only]
+	npv visualize [--namespace=<namespace>...] [--ingress-only] [--egress-only]
 
 Options:
 	--namespace=<namespace>	Namespace
@@ -24,7 +24,7 @@ Options:
 type arguments struct {
 	EgressOnly  bool
 	IngressOnly bool
-	Namespace   string
+	Namespace   []string
 	Visualize   bool
 }
 

@@ -14,8 +14,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func Visualize(namespace string, clientset kubernetes.Interface, categories []string) (string, error) {
-	policies, err := getPolicies(namespace, clientset)
+func Visualize(namespaces []string, clientset kubernetes.Interface, categories []string) (string, error) {
+	policies, err := getPolicies(namespaces, clientset)
 	if err != nil {
 		return "", err
 	}
@@ -314,12 +314,24 @@ func generatePlantUML(pods map[string]pod, categories []string) string {
 	return b.String()
 }
 
-func getPolicies(namespace string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
-	list, err := clientset.NetworkingV1().NetworkPolicies(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
+func getPolicies(namespaces []string, clientset kubernetes.Interface) ([]networkingv1.NetworkPolicy, error) {
+	items := []networkingv1.NetworkPolicy{}
+	if len(namespaces) == 0 {
+		list, err := clientset.NetworkingV1().NetworkPolicies("").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return list.Items, nil
+
 	}
-	return list.Items, nil
+	for _, namespace := range namespaces {
+		list, err := clientset.NetworkingV1().NetworkPolicies(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, list.Items...)
+	}
+	return items, nil
 }
 
 func ipblockKey(ipblock networkingv1.IPBlock) string {

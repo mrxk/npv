@@ -10,11 +10,12 @@ identified by the current `KUBECONFIG` environment variable and prints a
 
 ## Usage
 
-`npv visualize [--namespace=namespace] [--ingress-only] [--egress-only]`
+`npv visualize [--namespace=<namespace>...] [--ingress-only] [--egress-only]`
 
 If not given a namespace, all NetworkPolicy resources in the cluster will be
-fetched. The output can be filtered to only ingress or egress rules with the
-cooresponding options.
+fetched. Multiple `--namespace` options can be provided to include the
+NetworkPolicy resources from multiple namespaces in one graph The output can be
+filtered to only ingress or egress rules with the cooresponding options.
 
 The output can be saved and processed with PlantUML or piped directly to it.
 

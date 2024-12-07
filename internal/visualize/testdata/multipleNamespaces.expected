@@ -1,0 +1,32 @@
+@startuml
+left to right direction
+frame Pods {
+component "Name: one\lNamespace: default\lMatch Labels:\l    app: app1\l" as defaultappapp1 {
+    portout " " as defaultappapp1portout
+}
+component "Name: three, two\lNamespace: one\lMatch Labels:\l    app: app1\l" as oneappapp1 {
+    portout " " as oneappapp1portout
+}
+component "Name: five, four\lNamespace: two\lMatch Labels:\l    app: app1\l" as twoappapp1 {
+    port "4444 (TCP)" as 0.0.0.0_0TCP4444port
+    port "5555 (TCP)" as 0.0.0.0_0TCP5555port
+}
+}
+frame Ingress {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0 {
+    portout " " as 0.0.0.0_0ingressportout
+}
+}
+0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP4444port
+0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP5555port
+frame Egress {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP1111 {
+    port "1111 (TCP)" as 0.0.0.0_0TCP1111egressport
+    port "2222 (TCP)" as 0.0.0.0_0TCP2222egressport
+    port "3333 (TCP)" as 0.0.0.0_0TCP3333egressport
+}
+}
+defaultappapp1portout --down[#green]--> 0.0.0.0_0TCP1111egressport
+oneappapp1portout --down[#green]--> 0.0.0.0_0TCP2222egressport
+oneappapp1portout --down[#green]--> 0.0.0.0_0TCP3333egressport
+@enduml

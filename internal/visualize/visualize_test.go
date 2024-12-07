@@ -18,7 +18,7 @@ func TestVisaulize(t *testing.T) {
 	tests := map[string]struct {
 		policies      []string
 		categories    []string
-		namespace     string
+		namespace     []string
 		expected      string
 		expectedError string
 	}{
@@ -27,7 +27,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/allowToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/allowToPod.expected",
 		},
 		"oneIngressOnly": {
@@ -35,7 +35,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/allowToPod.input",
 			},
 			categories: []string{"ingress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/allowToPod.ingress.expected",
 		},
 		"oneEgressOnly": {
@@ -43,7 +43,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/allowToPod.input",
 			},
 			categories: []string{"egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/allowToPod.egress.expected",
 		},
 		"denyToPod": {
@@ -51,7 +51,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/denyToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/denyToPod.expected",
 		},
 		"denyAll": {
@@ -59,7 +59,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/denyAll.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/denyAll.expected",
 		},
 		"denyAllAndToPod": {
@@ -68,7 +68,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/denyToPod.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/denyAllAndToPod.expected",
 		},
 		"allowAll": {
@@ -76,7 +76,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/allowAll.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/allowAll.expected",
 		},
 		"allInOne": {
@@ -84,7 +84,7 @@ func TestVisaulize(t *testing.T) {
 				"testdata/allInOne.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/allInOne.expected",
 		},
 		"multiple": {
@@ -92,8 +92,16 @@ func TestVisaulize(t *testing.T) {
 				"testdata/multiple.input",
 			},
 			categories: []string{"ingress", "egress"},
-			namespace:  "default",
+			namespace:  []string{"default"},
 			expected:   "testdata/multiple.expected",
+		},
+		"multipleNamespaces": {
+			policies: []string{
+				"testdata/multipleNamespaces.input",
+			},
+			categories: []string{"ingress", "egress"},
+			namespace:  []string{"default", "one", "two"},
+			expected:   "testdata/multipleNamespaces.expected",
 		},
 	}
 
