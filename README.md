@@ -15,7 +15,7 @@ least PlantUML version 2024.8 for best results on large diagrams.
 npv - Network Policy Visualizer
 
 Usage:
-        npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)]
+        npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)] [--linetype=<type>]
 
 Options:
         --namespace=<namespace> Namespace containing Network Policies to visualize
@@ -23,6 +23,7 @@ Options:
         --out=<out>             Path to write visualiztion (- for stdout) (default: -)
         --ingress-only          Visualize only ingress rules
         --egress-only           Visualize only egress rules
+        --linetype=<type>       Specify a line type (polyline or ortho)
 ```
 
 If not given `--namespace` or `--file`, all NetworkPolicy resources in the
@@ -33,6 +34,10 @@ Globs can be passed to `--file` although care must be taken to ensure the shell
 does not expand the glob before executing `npv`.  The output can be filtered to
 only ingress or egress rules with either `--ingress-only` or `--egress-only`
 options.
+
+The `--linetype` can be left unspecified (the default) or can be `polyline` or
+`ortho`.  When specified this will become the linetype skinparam in the
+resulting PlantUML output.  This can be useful in very large diagrams.
 
 The output can be saved and processed with PlantUML or piped directly to it.
 

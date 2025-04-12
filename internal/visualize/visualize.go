@@ -18,7 +18,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func VisualizeNamespaces(namespaces []string, clientset kubernetes.Interface, categories []string) (string, error) {
+func VisualizeNamespaces(
+	namespaces []string,
+	clientset kubernetes.Interface,
+	categories []string,
+	linetype string,
+) (string, error) {
 	policies, err := getPoliciesFromNamespaces(namespaces, clientset)
 	if err != nil {
 		return "", err
@@ -27,10 +32,14 @@ func VisualizeNamespaces(namespaces []string, clientset kubernetes.Interface, ca
 	if err != nil {
 		return "", err
 	}
-	return generatePlantUML(podRules, categories), nil
+	return generatePlantUML(podRules, categories, linetype), nil
 }
 
-func VisualizeFiles(files, categories []string) (string, error) {
+func VisualizeFiles(
+	files,
+	categories []string,
+	linetype string,
+) (string, error) {
 	policies, err := getPoliciesFromFiles(files)
 	if err != nil {
 		return "", err
@@ -39,7 +48,7 @@ func VisualizeFiles(files, categories []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return generatePlantUML(podRules, categories), nil
+	return generatePlantUML(podRules, categories, linetype), nil
 
 }
 
@@ -316,10 +325,17 @@ func generateEgressPlantUML(ids []string, pods map[string]pod) string {
 	return b.String()
 }
 
-func generatePlantUML(pods map[string]pod, categories []string) string {
+func generatePlantUML(
+	pods map[string]pod,
+	categories []string,
+	linetype string,
+) string {
 	b := strings.Builder{}
 	b.WriteString("@startuml\n")
 	b.WriteString("left to right direction\n")
+	if linetype != "" {
+		b.WriteString(fmt.Sprintf("skinparam linetype %s\n", linetype))
+	}
 	ids := maputils.SortedKeys(pods)
 	// Create the components that represent the pods.
 	b.WriteString(generatePodPlantUML(ids, pods, categories))

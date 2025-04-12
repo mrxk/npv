@@ -14,7 +14,7 @@ const (
 	usage = `npv - Network Policy Visualizer
 
 Usage:
-	npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)]
+	npv visualize [(--namespace=<namespace>...|--file=<file>...)] [--out=<out>] [(--ingress-only|--egress-only)] [--linetype=<type>]
 
 Options:
 	--namespace=<namespace>	Namespace containing Network Policies to visualize
@@ -22,6 +22,7 @@ Options:
 	--out=<out>             Path to write visualiztion (- for stdout) (default: -)
 	--ingress-only          Visualize only ingress rules
 	--egress-only           Visualize only egress rules
+	--linetype=<type>       Specify a line type (polyline or ortho)
 	`
 )
 
@@ -32,6 +33,7 @@ type arguments struct {
 	Namespace   []string
 	Out         string
 	Visualize   bool
+	Linetype    string
 }
 
 func main() {
@@ -75,11 +77,12 @@ func runVisualize(args arguments) error {
 	// If given files, then visualize files. Otherwise, assume visualization of
 	// a cluster is desired.
 	if len(args.File) > 0 {
-		content, err = visualize.VisualizeFiles(args.File, category)
+		content, err = visualize.VisualizeFiles(args.File, category, args.Linetype)
 	} else {
-		clientset, err := getClientset(os.Getenv("KUBECONFIG"))
+		var clientset *kubernetes.Clientset
+		clientset, err = getClientset(os.Getenv("KUBECONFIG"))
 		if err == nil {
-			content, err = visualize.VisualizeNamespaces(args.Namespace, clientset, category)
+			content, err = visualize.VisualizeNamespaces(args.Namespace, clientset, category, args.Linetype)
 		}
 	}
 	if err != nil {

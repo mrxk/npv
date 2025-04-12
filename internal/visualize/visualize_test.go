@@ -121,7 +121,7 @@ func TestVisaulizeNamepsaces(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			clientset := createFakeClientset(t, tc.policies)
-			actual, err := visualize.VisualizeNamespaces(tc.namespace, clientset, tc.categories)
+			actual, err := visualize.VisualizeNamespaces(tc.namespace, clientset, tc.categories, "")
 			if tc.expectedError != "" {
 				require.ErrorContains(t, err, tc.expectedError)
 			} else {
@@ -137,7 +137,7 @@ func TestVisaulizeNamepsaces(t *testing.T) {
 func TestVisaulizeFiles(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			actual, err := visualize.VisualizeFiles(tc.policies, tc.categories)
+			actual, err := visualize.VisualizeFiles(tc.policies, tc.categories, "")
 			if tc.expectedError != "" {
 				require.ErrorContains(t, err, tc.expectedError)
 			} else {
