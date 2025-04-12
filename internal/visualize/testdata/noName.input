@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          one: one
+    - namespaceSelector: {}
+    ports:
+    - port: 1111
+      protocol: TCP
+    - port: 2222
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      one: one
+  policyTypes:
+  - Ingress

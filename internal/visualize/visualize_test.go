@@ -20,6 +20,7 @@ var tests = map[string]struct {
 	namespace     []string
 	expected      string
 	expectedError string
+	fileOnly      bool
 }{
 	"one": {
 		policies: []string{
@@ -102,10 +103,22 @@ var tests = map[string]struct {
 		namespace:  []string{"default", "one", "two"},
 		expected:   "testdata/multipleNamespaces.expected",
 	},
+	"noName": {
+		fileOnly: true,
+		policies: []string{
+			"testdata/noName.input",
+		},
+		categories: []string{"ingress", "egress"},
+		namespace:  []string{"default"},
+		expected:   "testdata/noName.expected",
+	},
 }
 
 func TestVisaulizeNamepsaces(t *testing.T) {
 	for name, tc := range tests {
+		if tc.fileOnly {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			clientset := createFakeClientset(t, tc.policies)
 			actual, err := visualize.VisualizeNamespaces(tc.namespace, clientset, tc.categories)

@@ -1,0 +1,25 @@
+@startuml
+left to right direction
+frame Pods {
+component "Name: \lNamespace: \lMatch Labels:\l    one: one\l" as oneone {
+    port "1111 (TCP)" as _ALL_TCP1111port
+    port "2222 (TCP)" as _ALL_TCP2222port
+    port "1111 (TCP)" as oneoneTCP1111port
+    port "2222 (TCP)" as oneoneTCP2222port
+}
+}
+frame Ingress {
+component "Namespace:\l    All\l" as _ALL__i {
+    portout " " as _ALL_ingressportout
+}
+component "Pod:\l    Match Labels:\l        one: one\l" as oneone_i {
+    portout " " as oneoneingressportout
+}
+}
+_ALL_ingressportout --down[#green]--> _ALL_TCP1111port
+_ALL_ingressportout --down[#green]--> _ALL_TCP2222port
+oneoneingressportout --down[#green]--> oneoneTCP1111port
+oneoneingressportout --down[#green]--> oneoneTCP2222port
+frame Egress {
+}
+@enduml
