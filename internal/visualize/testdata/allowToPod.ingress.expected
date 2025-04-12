@@ -3,11 +3,10 @@ left to right direction
 frame Pods {
 component "Name: one\lNamespace: default\lMatch Labels:\l    app: pod2\l" as defaultapppod2 {
     port "0-65535" as apppod1port
-    portout " " as defaultapppod2portout
 }
 }
 frame Ingress {
-component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1 {
+component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1_i {
     portout " " as apppod1ingressportout
 }
 }

@@ -2,7 +2,8 @@
 
 This project fetches NetworkPolicy resources from the Kubernetes cluster
 identified by the current `KUBECONFIG` environment variable and prints a
-[PlantUML](http://www.plantuml.com) component diagram to stdout.
+[PlantUML](http://www.plantuml.com) component diagram to stdout. Note, use at
+least PlantUML version 2024.8 for best results on large diagrams.
 
 ## Install
 

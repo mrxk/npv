@@ -154,7 +154,7 @@ func convertToPodRules(policies []networkingv1.NetworkPolicy) (map[string]pod, e
 		if slices.Contains(policy.Spec.PolicyTypes, networkingv1.PolicyTypeEgress) {
 			if len(policy.Spec.Egress) == 0 {
 				p.egress = append(p.egress, target{
-					id:       "_ALL_",
+					id:       p.id + "_ALL_",
 					peerId:   "_ALL_PEER_EGRESS_",
 					blockAll: true,
 				})
@@ -223,15 +223,19 @@ func generatePodPlantUML(ids []string, pods map[string]pod, categories []string)
 		if (slices.Contains(categories, "ingress") && len(pod.ingress) > 0) ||
 			(slices.Contains(categories, "egress") && len(pod.egress) > 0) {
 			b.WriteString(fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(pod.Label(), "\n", "\\l"), id))
-			for _, t := range pod.ingress {
-				if t.blockAll || t.allowAll {
-					b.WriteString(fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"port"))
-					continue
+			if slices.Contains(categories, "ingress") {
+				for _, t := range pod.ingress {
+					if t.blockAll || t.allowAll {
+						b.WriteString(fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"port"))
+						continue
+					}
+					b.WriteString(fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"port"))
 				}
-				b.WriteString(fmt.Sprintf("    port \"%s\" as %s\n", formatPort(t.port), t.id+"port"))
 			}
-			if len(pod.egress) > 0 {
-				b.WriteString(fmt.Sprintf("    portout \" \" as %s\n", id+"portout"))
+			if slices.Contains(categories, "egress") {
+				if len(pod.egress) > 0 {
+					b.WriteString(fmt.Sprintf("    portout \" \" as %s\n", id+"portout"))
+				}
 			}
 			b.WriteString("}\n")
 		}
@@ -252,7 +256,7 @@ func generateIngressPlantUML(ids []string, pods map[string]pod) string {
 				b.WriteString(
 					fmt.Sprintf("component \"%s\" as %s {\n    portout \" \" as %s\n}\n",
 						strings.ReplaceAll(t.Label(), "\n", "\\l"),
-						t.peerId,
+						t.peerId+"_i",
 						t.peerId+"ingressportout"),
 				)
 				ingressNodes[t.peerId] = struct{}{}
@@ -282,7 +286,7 @@ func generateEgressPlantUML(ids []string, pods map[string]pod) string {
 		for _, t := range pod.egress {
 			ports, present := egressComponents[t.peerId]
 			if !present {
-				ports = []string{fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(t.Label(), "\n", "\\l"), t.id)}
+				ports = []string{fmt.Sprintf("component \"%s\" as %s {\n", strings.ReplaceAll(t.Label(), "\n", "\\l"), t.id+"_e")}
 			}
 			if t.blockAll || t.allowAll {
 				ports = append(ports, fmt.Sprintf("    port \"0-65535\" as %s\n", t.id+"egressport"))
@@ -370,6 +374,10 @@ func getPoliciesFromFiles(files []string) ([]networkingv1.NetworkPolicy, error) 
 				if err == io.EOF {
 					break
 				}
+				// Skip empty yaml documents
+				if obj.Kind == "" {
+					continue
+				}
 				items = append(items, obj)
 			}
 		}
@@ -438,9 +446,15 @@ func peerLabel(p networkingv1.NetworkPolicyPeer) string {
 		b.WriteString("Namespace:\n" + selectorLabel("    ", *p.NamespaceSelector))
 	}
 	if p.PodSelector != nil {
+		if p.NamespaceSelector != nil {
+			b.WriteString("\n")
+		}
 		b.WriteString("Pod:\n" + selectorLabel("    ", *p.PodSelector))
 	}
 	if p.IPBlock != nil {
+		if p.NamespaceSelector != nil || p.PodSelector != nil {
+			b.WriteString("\n")
+		}
 		b.WriteString("IPBlock:\n" + ipblockLable(*p.IPBlock))
 	}
 	return b.String()
@@ -457,16 +471,19 @@ func selectorLabel(indent string, s metav1.LabelSelector) string {
 	}
 	b := strings.Builder{}
 	if len(s.MatchLabels) > 0 {
-		b.WriteString(indent + "Match Labels:\n")
-	}
-	for k, v := range s.MatchLabels {
-		b.WriteString(indent + "    " + k + ": " + v + "\n")
+		b.WriteString(indent + "Match Labels:")
+		for k, v := range s.MatchLabels {
+			b.WriteString("\n" + indent + "    " + k + ": " + v)
+		}
 	}
 	if len(s.MatchExpressions) > 0 {
-		b.WriteString(indent + "Match Expressions:\n")
-	}
-	for _, e := range s.MatchExpressions {
-		b.WriteString(indent + "    " + e.Key + " " + string(e.Operator) + " " + strings.Join(e.Values, ", "))
+		if len(s.MatchLabels) > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(indent + "Match Expressions:")
+		for _, e := range s.MatchExpressions {
+			b.WriteString("\n" + indent + "    " + e.Key + " " + string(e.Operator) + " " + strings.Join(e.Values, ", "))
+		}
 	}
 	return b.String()
 }

@@ -18,10 +18,10 @@ component "Name: all-in-one\lNamespace: default\lMatch Labels:\l    app: app1\l"
 }
 }
 frame Ingress {
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother {
+component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceother_i {
     portout " " as appapp2namespaceotheringressportout
 }
-component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3 {
+component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3_i {
     portout " " as appapp3ingressportout
 }
 }
@@ -38,35 +38,35 @@ appapp2namespaceotheringressportout --down[#green]--> appapp2namespaceotherTCP11
 appapp3ingressportout --down[#green]--> appapp3TCP1129port
 appapp3ingressportout --down[#green]--> appapp3TCP1130port
 frame Egress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP443 {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP443_e {
     port "443 (TCP)" as 0.0.0.0_0TCP443egressport
 }
-component "IPBlock:\l    0.0.0.0/0\l        except:\l            10.1.1.5/32,\l            10.1.1.6/32,\l            10.1.1.7/32,\l            10.1.1.8/32,\l            10.1.1.9/32\l\l\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32 {
+component "IPBlock:\l    0.0.0.0/0\l        except:\l            10.1.1.5/32,\l            10.1.1.6/32,\l            10.1.1.7/32,\l            10.1.1.8/32,\l            10.1.1.9/32\l\l\l" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32_e {
     port "0-65535" as 0.0.0.0_010.1.1.5_3210.1.1.6_3210.1.1.7_3210.1.1.8_3210.1.1.9_32egressport
 }
-component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1111 {
+component "IPBlock:\l    10.1.1.1/32\l" as 10.1.1.1_32TCP1111_e {
     port "1111 (TCP)" as 10.1.1.1_32TCP1111egressport
     port "1112 (TCP)" as 10.1.1.1_32TCP1112egressport
     port "1113 (TCP)" as 10.1.1.1_32TCP1113egressport
     port "1114 (TCP)" as 10.1.1.1_32TCP1114egressport
     port "1115 (TCP)" as 10.1.1.1_32TCP1115egressport
 }
-component "IPBlock:\l    10.1.1.2/32\l" as 10.1.1.2_32TCP443 {
+component "IPBlock:\l    10.1.1.2/32\l" as 10.1.1.2_32TCP443_e {
     port "443 (TCP)" as 10.1.1.2_32TCP443egressport
 }
-component "IPBlock:\l    10.1.1.3/32\l" as 10.1.1.3_32TCP443 {
+component "IPBlock:\l    10.1.1.3/32\l" as 10.1.1.3_32TCP443_e {
     port "443 (TCP)" as 10.1.1.3_32TCP443egressport
 }
-component "IPBlock:\l    10.1.1.4/32\l" as 10.1.1.4_32TCP443 {
+component "IPBlock:\l    10.1.1.4/32\l" as 10.1.1.4_32TCP443_e {
     port "443 (TCP)" as 10.1.1.4_32TCP443egressport
 }
-component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceotherUDP53 {
+component "Namespace:\l    Match Labels:\l        namespace: other\lPod:\l    Match Labels:\l        app: app2\l" as appapp2namespaceotherUDP53_e {
     port "53 (UDP)" as appapp2namespaceotherUDP53egressport
 }
-component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3TCP1116 {
+component "Pod:\l    Match Labels:\l        app: app3\l" as appapp3TCP1116_e {
     port "1116 (TCP)" as appapp3TCP1116egressport
 }
-component "Pod:\l    Match Labels:\l        app: app4\l" as appapp4TCP1117 {
+component "Pod:\l    Match Labels:\l        app: app4\l" as appapp4TCP1117_e {
     port "1117 (TCP)" as appapp4TCP1117egressport
 }
 }

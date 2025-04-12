@@ -7,15 +7,15 @@ component "Name: denyToPod\lNamespace: default\lMatch Labels:\l    app: demo\l" 
 }
 }
 frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS_ {
+component "ALL" as _ALL_PEER_INGRESS__i {
     portout " " as _ALL_PEER_INGRESS_ingressportout
 }
 }
 _ALL_PEER_INGRESS_ingressportout --down[#red]--> defaultappdemo_ALL_port
 frame Egress {
-component "ALL" as _ALL_ {
-    port "0-65535" as _ALL_egressport
+component "ALL" as defaultappdemo_ALL__e {
+    port "0-65535" as defaultappdemo_ALL_egressport
 }
 }
-defaultappdemoportout --down[#red]--> _ALL_egressport
+defaultappdemoportout --down[#red]--> defaultappdemo_ALL_egressport
 @enduml

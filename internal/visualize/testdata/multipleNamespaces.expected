@@ -13,14 +13,14 @@ component "Name: five, four\lNamespace: two\lMatch Labels:\l    app: app1\l" as 
 }
 }
 frame Ingress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0 {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0_i {
     portout " " as 0.0.0.0_0ingressportout
 }
 }
 0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP4444port
 0.0.0.0_0ingressportout --down[#green]--> 0.0.0.0_0TCP5555port
 frame Egress {
-component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP1111 {
+component "IPBlock:\l    0.0.0.0/0\l" as 0.0.0.0_0TCP1111_e {
     port "1111 (TCP)" as 0.0.0.0_0TCP1111egressport
     port "2222 (TCP)" as 0.0.0.0_0TCP2222egressport
     port "3333 (TCP)" as 0.0.0.0_0TCP3333egressport

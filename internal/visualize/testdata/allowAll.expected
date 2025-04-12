@@ -7,13 +7,13 @@ component "Name: network-policy\lNamespace: default\lMatch Labels:\l    app: dem
 }
 }
 frame Ingress {
-component "ALL" as _ALL_PEER_INGRESS {
+component "ALL" as _ALL_PEER_INGRESS_i {
     portout " " as _ALL_PEER_INGRESSingressportout
 }
 }
 _ALL_PEER_INGRESSingressportout --down[#green]--> _ALL_PEER_port
 frame Egress {
-component "ALL" as _ALL_PEER_ {
+component "ALL" as _ALL_PEER__e {
     port "0-65535" as _ALL_PEER_egressport
 }
 }

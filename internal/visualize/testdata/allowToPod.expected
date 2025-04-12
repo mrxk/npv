@@ -7,13 +7,13 @@ component "Name: one\lNamespace: default\lMatch Labels:\l    app: pod2\l" as def
 }
 }
 frame Ingress {
-component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1 {
+component "Pod:\l    Match Labels:\l        app: pod1\l" as apppod1_i {
     portout " " as apppod1ingressportout
 }
 }
 apppod1ingressportout --down[#green]--> apppod1port
 frame Egress {
-component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2 {
+component "Pod:\l    Match Labels:\l        app: pod2\l" as apppod2_e {
     port "0-65535" as apppod2egressport
 }
 }
